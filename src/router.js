@@ -23,6 +23,21 @@ import NginxTool from './views/NginxTool.vue'
 import BgRemoverTool from './views/BgRemoverTool.vue'
 import VideoGifTool from './views/VideoGifTool.vue'
 import FileCompressTool from './views/FileCompressTool.vue'
+import UrlTool from './views/UrlTool.vue'
+import HashTool from './views/HashTool.vue'
+import JwtTool from './views/JwtTool.vue'
+import DiffTool from './views/DiffTool.vue'
+import CronTool from './views/CronTool.vue'
+import HtmlEntityTool from './views/HtmlEntityTool.vue'
+import SqliteTool from './views/SqliteTool.vue'
+import SqlFormatTool from './views/SqlFormatTool.vue'
+import CssShadowTool from './views/CssShadowTool.vue'
+import CssRadiusTool from './views/CssRadiusTool.vue'
+import CssAnimationTool from './views/CssAnimationTool.vue'
+import TextStatsTool from './views/TextStatsTool.vue'
+import FullwidthTool from './views/FullwidthTool.vue'
+import DateCalcTool from './views/DateCalcTool.vue'
+import CountdownTool from './views/CountdownTool.vue'
 
 export const routes = [
   { path: '/', redirect: '/json' },
@@ -31,25 +46,39 @@ export const routes = [
   { path: '/base64', name: 'base64', component: Base64Tool, meta: { title: 'Base64 编解码', icon: '🔐', group: 'text' } },
   { path: '/code-format', name: 'code-format', component: CodeFormatTool, meta: { title: '代码美化压缩', icon: '🎨', group: 'text' } },
   { path: '/regex', name: 'regex', component: RegexTool, meta: { title: '正则测试器', icon: '🔍', group: 'text' } },
+  { path: '/url', name: 'url', component: UrlTool, meta: { title: 'URL编解码', icon: '🔗', group: 'text' } },
+  { path: '/html-entity', name: 'html-entity', component: HtmlEntityTool, meta: { title: 'HTML实体编解码', icon: '📄', group: 'text' } },
+  { path: '/sql-format', name: 'sql-format', component: SqlFormatTool, meta: { title: 'SQL格式化', icon: '🗃️', group: 'text' } },
   // 时间与数据
   { path: '/timestamp', name: 'timestamp', component: TimestampTool, meta: { title: '时间戳转换', icon: '🕐', group: 'time' } },
   { path: '/qrcode', name: 'qrcode', component: QrcodeTool, meta: { title: '二维码生成', icon: '📱', group: 'time' } },
   { path: '/password', name: 'password', component: PasswordTool, meta: { title: '密码生成器', icon: '🔑', group: 'time' } },
+  { path: '/date-calc', name: 'date-calc', component: DateCalcTool, meta: { title: '日期计算器', icon: '📅', group: 'time' } },
+  { path: '/countdown', name: 'countdown', component: CountdownTool, meta: { title: '倒计时工具', icon: '⏳', group: 'time' } },
   // 颜色与视觉
   { path: '/color-convert', name: 'color-convert', component: ColorConvertTool, meta: { title: '颜色格式转换', icon: '🎨', group: 'color' } },
   { path: '/color-palette', name: 'color-palette', component: ColorPaletteTool, meta: { title: '配色方案生成', icon: '🎯', group: 'color' } },
   { path: '/gradient', name: 'gradient', component: GradientTool, meta: { title: '渐变生成器', icon: '🌈', group: 'color' } },
   { path: '/traditional-colors', name: 'traditional-colors', component: TraditionalColorsTool, meta: { title: '传统色彩库', icon: '🏮', group: 'color' } },
+  { path: '/css-shadow', name: 'css-shadow', component: CssShadowTool, meta: { title: 'CSS阴影生成器', icon: '🖼️', group: 'color' } },
+  { path: '/css-radius', name: 'css-radius', component: CssRadiusTool, meta: { title: 'CSS圆角生成器', icon: '⬜', group: 'color' } },
+  { path: '/css-animation', name: 'css-animation', component: CssAnimationTool, meta: { title: 'CSS动画生成器', icon: '🎭', group: 'color' } },
   // 文本与字符
   { path: '/zh-convert', name: 'zh-convert', component: ZhConvertTool, meta: { title: '繁简转换', icon: '字', group: 'char' } },
   { path: '/pinyin', name: 'pinyin', component: PinyinTool, meta: { title: '汉字转拼音', icon: '🔤', group: 'char' } },
   { path: '/amount', name: 'amount', component: AmountTool, meta: { title: '金额大写', icon: '💰', group: 'char' } },
   { path: '/case-convert', name: 'case-convert', component: CaseConvertTool, meta: { title: '大小写转换', icon: 'Aa', group: 'char' } },
   { path: '/markdown', name: 'markdown', component: MarkdownTool, meta: { title: 'Markdown排版', icon: '📝', group: 'char' } },
+  { path: '/text-stats', name: 'text-stats', component: TextStatsTool, meta: { title: '文本字数统计', icon: '📏', group: 'char' } },
+  { path: '/fullwidth', name: 'fullwidth', component: FullwidthTool, meta: { title: '全角/半角转换', icon: '🔄', group: 'char' } },
   // 开发者辅助
   { path: '/base-convert', name: 'base-convert', component: BaseConvertTool, meta: { title: '进制转换', icon: '🔢', group: 'dev' } },
   { path: '/uuid', name: 'uuid', component: UuidTool, meta: { title: 'UUID/随机数', icon: '🆔', group: 'dev' } },
   { path: '/nginx', name: 'nginx', component: NginxTool, meta: { title: 'Nginx配置', icon: '⚙️', group: 'dev' } },
+  { path: '/hash', name: 'hash', component: HashTool, meta: { title: 'Hash计算', icon: '🧮', group: 'dev' } },
+  { path: '/jwt', name: 'jwt', component: JwtTool, meta: { title: 'JWT解码', icon: '🔑', group: 'dev' } },
+  { path: '/diff', name: 'diff', component: DiffTool, meta: { title: '文本差异对比', icon: '📊', group: 'dev' } },
+  { path: '/cron', name: 'cron', component: CronTool, meta: { title: 'Cron表达式', icon: '⏱️', group: 'dev' } },
   // 进阶与多媒体
   { path: '/postman', name: 'postman', component: PostmanTool, meta: { title: '接口调试', icon: '🚀', group: 'advanced' } },
   { path: '/image', name: 'image', component: ImageTool, meta: { title: '图片处理', icon: '🖼️', group: 'advanced' } },
@@ -57,6 +86,7 @@ export const routes = [
   { path: '/bg-remover', name: 'bg-remover', component: BgRemoverTool, meta: { title: '在线抠图', icon: '✂️', group: 'media' } },
   { path: '/video-gif', name: 'video-gif', component: VideoGifTool, meta: { title: '视频转GIF', icon: '🎬', group: 'media' } },
   { path: '/file-compress', name: 'file-compress', component: FileCompressTool, meta: { title: '文件压缩', icon: '📦', group: 'media' } },
+  { path: '/sqlite', name: 'sqlite', component: SqliteTool, meta: { title: 'SQLite查看', icon: '🗄️', group: 'dev' } },
 ]
 
 export const toolGroups = {
