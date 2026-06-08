@@ -8,7 +8,7 @@
           <label class="text-sm font-medium text-gray-600 dark:text-gray-400">输入</label>
           <button @click="input = ''" class="btn-secondary btn-sm">清空</button>
         </div>
-        <textarea v-model="input" class="textarea-field h-72" :placeholder="activeTab === 'csv2json' ? '粘贴 CSV 数据...\nname,age,city\n张三,28,北京\n李四,32,上海' : '粘贴 JSON 数组...\n[\n  {\"name\": \"张三\", \"age\": 28}\n]'"></textarea>
+        <textarea v-model="input" class="textarea-field h-72" :placeholder="placeholderText"></textarea>
       </div>
       <div class="tool-card">
         <div class="flex items-center justify-between mb-3">
@@ -37,7 +37,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import CopyButton from '../components/CopyButton.vue'
 
 const input = ref('')
@@ -45,6 +45,12 @@ const output = ref('')
 const error = ref('')
 const activeTab = ref('csv2json')
 const delimiter = ref(',')
+
+const placeholderText = computed(() => {
+  return activeTab.value === 'csv2json'
+    ? '粘贴 CSV 数据...\nname,age,city\n张三,28,北京\n李四,32,上海'
+    : '粘贴 JSON 数组...\n[\n  {"name": "张三", "age": 28}\n]'
+})
 
 function switchTab(tab) { activeTab.value = tab; error.value = '' }
 
