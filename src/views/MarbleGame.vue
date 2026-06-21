@@ -48,7 +48,19 @@
 
     <!-- 中部核心游戏场景区 -->
     <div class="game-area">
-      <canvas ref="gameCanvas" class="game-canvas" width="400" height="380"></canvas>
+      <div class="game-area-row">
+        <canvas ref="gameCanvas" class="game-canvas" width="400" height="380"></canvas>
+        <!-- 右侧弹珠发射器（拉杆+弹簧） -->
+        <div 
+          class="launch-button" 
+          :class="{ active: gameState === 'readyToLaunch' }"
+        >
+          <div class="launch-base" @mousedown="startPlunger" @touchstart.prevent="startPlunger">
+            <div class="launch-spring" :class="{ compressed: isPlungerPulled }"></div>
+            <div class="launch-lever" :class="{ pulled: isPlungerPulled }"></div>
+          </div>
+        </div>
+      </div>
       
       <!-- 游戏状态覆盖层 -->
       <div v-if="gameOverlay.show" class="game-overlay">
@@ -92,16 +104,6 @@
         <span class="btn-content">开始</span>
       </button>
 
-      <!-- 右侧弹珠发射器（拉杆+弹簧） -->
-      <div 
-        class="launch-button" 
-        :class="{ active: gameState === 'readyToLaunch' }"
-      >
-        <div class="launch-base" @mousedown="startPlunger" @touchstart.prevent="startPlunger">
-          <div class="launch-spring" :class="{ compressed: isPlungerPulled }"></div>
-          <div class="launch-lever" :class="{ pulled: isPlungerPulled }"></div>
-        </div>
-      </div>
     </div>
 
     <!-- 底部倍率显示（12个通道） -->
@@ -427,7 +429,7 @@ const launchBall = () => {
   // 发射主弹珠
   const channelLeft = canvasWidth - channelWidth - 5
   
-  mainBall.x = channelLeft + 17
+  mainBall.x = channelLeft + channelWidth / 2
   mainBall.y = canvasHeight - 50
   mainBall.vx = -2 + (Math.random() - 0.5) * 2 // 略微向左，带随机偏移
   mainBall.vy = -plungerVelocity * 0.8 // 向上发射
@@ -678,7 +680,7 @@ const updateBall = (ball, frameCount) => {
   
   if (hasPassedGate && gateOpen && ballState === 'waiting') {
     // 小球已通过闸门，定位到U形球槽底部中央（避免与闸门重叠）
-    ball.x = canvasWidth - channelWidth - 5 + 17  // 与 launchBall() 的发射位置一致
+    ball.x = canvasWidth - channelWidth - 5 + channelWidth / 2  // 与 launchBall() 的发射位置一致
     ball.y = canvasHeight - 50                    // U形球槽内
     ball.vx = 0
     ball.vy = 0
@@ -991,8 +993,8 @@ const drawWalls = () => {
   const gapTop = canvasHeight - 80 // 缺口顶部位置
   const gapHeight = 50 // 缺口高度
 
-  // 上半部分墙壁（从顶部到 gapTop）
-  ctx.fillRect(rightWallX - wallWidth, 0, wallWidth, gapTop)
+  // 上半部分墙壁（从弧形底部到 gapTop）
+  ctx.fillRect(rightWallX - wallWidth, channelTop + channelWidth, wallWidth, gapTop - channelTop - channelWidth)
 
   // 下半部分墙壁
   ctx.fillRect(rightWallX - wallWidth, gapTop + gapHeight, wallWidth, wallHeight - gapTop - gapHeight)
@@ -1002,7 +1004,7 @@ const drawWalls = () => {
   ctx.lineWidth = 2
 
   // 上半部分边框
-  ctx.strokeRect(rightWallX - wallWidth, 0, wallWidth, gapTop)
+  ctx.strokeRect(rightWallX - wallWidth, channelTop + channelWidth, wallWidth, gapTop - channelTop - channelWidth)
 
   // 下半部分边框
   ctx.strokeRect(rightWallX - wallWidth, gapTop + gapHeight, wallWidth, wallHeight - gapTop - gapHeight)
@@ -1050,34 +1052,7 @@ const drawLaunchChannel = () => {
   ctx.fill()
   ctx.stroke()
 
-  // ---- 绘制通道底部U形球槽（弹珠等待发射的入口） ----
-  const slotTop = canvasHeight - 48
-  const slotDepth = 22
-  const slotR = 8
 
-  // U形球槽白色边框
-  ctx.strokeStyle = '#FFFFFF'
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.moveTo(channelLeft + 3, slotTop)
-  ctx.lineTo(channelLeft + 3, slotTop + slotDepth - slotR)
-  ctx.quadraticCurveTo(channelLeft + 3, slotTop + slotDepth, channelLeft + 3 + slotR, slotTop + slotDepth)
-  ctx.lineTo(channelRight - 5 - slotR, slotTop + slotDepth)
-  ctx.quadraticCurveTo(channelRight - 5, slotTop + slotDepth, channelRight - 5, slotTop + slotDepth - slotR)
-  ctx.lineTo(channelRight - 5, slotTop)
-  ctx.stroke()
-
-  // U形球槽填充
-  ctx.fillStyle = 'rgba(80, 170, 210, 0.5)'
-  ctx.beginPath()
-  ctx.moveTo(channelLeft + 4, slotTop + 1)
-  ctx.lineTo(channelLeft + 4, slotTop + slotDepth - slotR)
-  ctx.quadraticCurveTo(channelLeft + 4, slotTop + slotDepth - 1, channelLeft + 3 + slotR, slotTop + slotDepth - 1)
-  ctx.lineTo(channelRight - 5 - slotR, slotTop + slotDepth - 1)
-  ctx.quadraticCurveTo(channelRight - 6, slotTop + slotDepth - 1, channelRight - 6, slotTop + slotDepth - slotR)
-  ctx.lineTo(channelRight - 6, slotTop + 1)
-  ctx.closePath()
-  ctx.fill()
 
   // ---- 绘制银色主弹珠（始终显示） ----
   if (mainBall) {
@@ -1137,59 +1112,7 @@ const drawGate = () => {
   ctx.fillRect(gateLeft - 1, gateY + gateHeight - 4, wallWidth + 2, 4)
 }
 
-// 绘制底部U形收集槽
-const drawCollectionTray = () => {
-  const trayHeight = 22
-  const trayY = canvasHeight - trayHeight
-  const margin = 12
-  const cornerR = 8
 
-  // 先绘制阴影
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.15)'
-  ctx.shadowBlur = 6
-  ctx.shadowOffsetY = 2
-
-  // U形槽外边框
-  ctx.strokeStyle = '#FFFFFF'
-  ctx.lineWidth = 2.5
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-
-  ctx.beginPath()
-  ctx.moveTo(margin + cornerR, trayY)
-  ctx.lineTo(margin + cornerR, trayY + trayHeight - cornerR)
-  ctx.quadraticCurveTo(margin + cornerR, trayY + trayHeight, margin + cornerR * 2, trayY + trayHeight)
-  ctx.lineTo(canvasWidth - margin - cornerR * 2, trayY + trayHeight)
-  ctx.quadraticCurveTo(canvasWidth - margin - cornerR, trayY + trayHeight, canvasWidth - margin - cornerR, trayY + trayHeight - cornerR)
-  ctx.lineTo(canvasWidth - margin - cornerR, trayY)
-  ctx.stroke()
-
-  ctx.shadowBlur = 0
-  ctx.shadowOffsetY = 0
-
-  // U形槽内部填充
-  ctx.fillStyle = 'rgba(200, 230, 255, 0.35)'
-  ctx.beginPath()
-  ctx.moveTo(margin + cornerR + 2, trayY + 1)
-  ctx.lineTo(margin + cornerR + 2, trayY + trayHeight - cornerR)
-  ctx.quadraticCurveTo(margin + cornerR + 2, trayY + trayHeight - 2, margin + cornerR * 2, trayY + trayHeight - 2)
-  ctx.lineTo(canvasWidth - margin - cornerR * 2, trayY + trayHeight - 2)
-  ctx.quadraticCurveTo(canvasWidth - margin - cornerR - 2, trayY + trayHeight - 2, canvasWidth - margin - cornerR - 2, trayY + trayHeight - cornerR)
-  ctx.lineTo(canvasWidth - margin - cornerR - 2, trayY + 1)
-  ctx.closePath()
-  ctx.fill()
-
-  // 绘制槽内分隔线（模拟收集槽细节）
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
-  ctx.lineWidth = 1
-  for (let i = 1; i < 4; i++) {
-    const lineX = margin + cornerR + (canvasWidth - margin * 2 - cornerR * 2) * (i / 4)
-    ctx.beginPath()
-    ctx.moveTo(lineX, trayY + trayHeight - 5)
-    ctx.lineTo(lineX, trayY + trayHeight - 2)
-    ctx.stroke()
-  }
-}
 
 // 初始化游戏
 const initGame = () => {
@@ -1198,6 +1121,9 @@ const initGame = () => {
   ctx = gameCanvas.value.getContext('2d')
   canvasWidth = gameCanvas.value.width
   canvasHeight = gameCanvas.value.height
+  
+  // 发射通道宽度占 canvas 总宽度的 1/7
+  channelWidth = Math.round(canvasWidth / 7)
   
   const slotHeight = 40 // 定义通道高度
   
@@ -1494,8 +1420,14 @@ onUnmounted(() => {
   border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
+.game-area-row {
+  display: flex;
+  gap: 5px;
+  align-items: stretch;
+}
+
 .game-canvas {
-  width: 100%;
+  flex: 1;
   height: 380px;
   border-radius: 15px;
   display: block;
@@ -1648,8 +1580,10 @@ onUnmounted(() => {
 
 /* 右侧弹珠发射器（拉杆+弹簧） */
 .launch-button {
-  margin-left: auto;
+  margin-left: 0;
   cursor: default;
+  align-self: stretch;
+  display: flex;
 }
 
 .launch-button.active {
@@ -1659,7 +1593,8 @@ onUnmounted(() => {
 /* 发射器底座（深色轨道筒） */
 .launch-base {
   width: 42px;
-  min-height: 90px;
+  flex: 1;
+  min-height: 380px;
   background: linear-gradient(90deg, #2a2a2a 0%, #111 100%);
   border-radius: 8px 14px 14px 8px;
   padding: 10px 6px;
@@ -1667,14 +1602,31 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 0;
   border: 1px solid #444;
+  position: relative;
+}
+
+/* 轨道顶部固定点 */
+.launch-base::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 6px;
+  background: linear-gradient(180deg, #666 0%, #333 100%);
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
 /* 弹簧 */
 .launch-spring {
   width: 8px;
-  height: 30px;
+  flex: 1;
+  min-height: 80px;
   background: repeating-linear-gradient(
     0deg,
     #888,
@@ -1683,14 +1635,16 @@ onUnmounted(() => {
     #aaa 7px
   );
   border-radius: 4px;
-  transition: height 0.15s ease;
+  transition: all 0.15s ease;
   flex-shrink: 0;
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+  margin-bottom: 4px;
 }
 
 /* 弹簧压缩状态 */
 .launch-spring.compressed {
-  height: 12px;
+  min-height: 40px;
+  flex: 0;
 }
 
 /* 大红圆形发射按钮 */
@@ -1704,6 +1658,7 @@ onUnmounted(() => {
   transition: transform 0.15s ease;
   flex-shrink: 0;
   cursor: pointer;
+  margin-top: auto;
 }
 
 /* 按钮拉下状态（模拟弹簧压缩） */
