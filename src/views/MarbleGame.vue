@@ -8,36 +8,33 @@
       <div class="stats-row">
         <div class="stat-item">
           <span class="stat-label">总积分</span>
-          <div class="stat-value">{{ totalScore }}</div>
+          <div class="stat-value dark">{{ totalScore }}</div>
         </div>
         <div class="stat-item">
           <span class="stat-label">总珠子</span>
-          <div class="stat-value">{{ totalBalls }}</div>
+          <div class="stat-value dark">{{ totalBalls }}</div>
         </div>
         <div class="stat-item">
           <span class="stat-label">奖励珠子</span>
-          <div class="stat-value">{{ rewardBalls }}</div>
+          <div class="stat-value dark">{{ rewardBalls }}</div>
         </div>
         <div class="stat-item">
           <span class="stat-label">奖励积分</span>
-          <div class="stat-value">{{ rewardScore }}</div>
+          <div class="stat-value dark">{{ rewardScore }}</div>
         </div>
       </div>
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: progress + '%' }"></div>
-      </div>
       <div class="header-buttons">
-        <button class="btn-icon" @click="showLeaderboard">
-          <span class="icon">🏆</span>
-          <span class="btn-text">排行榜</span>
-        </button>
         <button class="btn-icon" @click="showGameCircle">
           <span class="icon">🎮</span>
           <span class="btn-text">游戏圈</span>
         </button>
         <button class="btn-icon" @click="addFreeBalls">
-          <span class="icon">⚽</span>
+          <span class="icon">+</span>
           <span class="btn-text">免费加珠</span>
+        </button>
+        <button class="btn-icon" @click="showLeaderboard">
+          <span class="icon">🏆</span>
+          <span class="btn-text">排行榜</span>
         </button>
         <button class="btn-icon" @click="showSettings">
           <span class="icon">⚙️</span>
@@ -48,13 +45,18 @@
 
     <!-- 中部核心游戏场景区 -->
     <div class="game-area">
+      <!-- 等待开始文字 -->
+      <div v-if="gameState === 'ready' || gameState === 'locked'" class="waiting-text">等待开始</div>
+      <!-- 弹珠冲啊装饰文字 -->
+      <div class="game-decoration">弹珠冲啊</div>
       <div class="game-area-row">
-        <canvas ref="gameCanvas" class="game-canvas" width="400" height="380"></canvas>
+        <canvas ref="gameCanvas" class="game-canvas"></canvas>
         <!-- 右侧弹珠发射器（拉杆+弹簧） -->
         <div 
           class="launch-button" 
           :class="{ active: gameState === 'readyToLaunch' }"
         >
+          <div class="launch-label">发射</div>
           <div class="launch-base" @mousedown="startPlunger" @touchstart.prevent="startPlunger">
             <div class="launch-spring" :class="{ compressed: isPlungerPulled }"></div>
             <div class="launch-lever" :class="{ pulled: isPlungerPulled }"></div>
@@ -106,7 +108,7 @@
 
     </div>
 
-    <!-- 底部倍率显示（12个通道） -->
+    <!-- 底部倍率显示（12个通道指示灯） -->
     <div class="multiplier-display">
       <div 
         v-for="(multiplier, index) in slotMultipliers" 
@@ -122,14 +124,19 @@
         }"
       >
         <span class="slot-light"></span>
-        <span class="slot-mult">{{ multiplier }}</span>
+      </div>
+    </div>
+    <!-- 底部U形收集槽 -->
+    <div class="collection-tray">
+      <div class="tray-body">
+        <div class="tray-inner"></div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 
 // 当前局倍率（每局锁定一个）
 const currentMultiplier = ref(1)
@@ -313,12 +320,16 @@ const startGame = () => {
     // 打开闸门
     openGate()
     
-    // 移动小球到发射区域
-    moveBallToLaunchPosition()
+    // 给小球一个向右的初速度，让它快速滚过闸门进入发射通道
+    if (mainBall) {
+      mainBall.vx = 3
+      mainBall.vy = 0
+    }
   }, 500)
 }
 
 // 打开闸门
+let gateSafetyTimer = null
 const openGate = () => {
   gateOpen = true
   // 闸门向上移动到缺口顶部以上，完全打开
@@ -331,10 +342,17 @@ const openGate = () => {
   }
   animateGate()
   
-  // 1秒后自动关闭闸门
-  setTimeout(() => {
-    closeGate()
-  }, 1000)
+  // 清除之前的安全定时器
+  if (gateSafetyTimer) {
+    clearTimeout(gateSafetyTimer)
+    gateSafetyTimer = null
+  }
+  
+  // 安全兜底：5秒后强制关闭闸门（防止小球卡住导致闸门永远开着）
+  gateSafetyTimer = setTimeout(() => {
+    if (gateOpen) closeGate()
+    gateSafetyTimer = null
+  }, 5000)
 }
 
 // 关闭闸门
@@ -685,6 +703,15 @@ const updateBall = (ball, frameCount) => {
     ball.vx = 0
     ball.vy = 0
     ballState = 'launching'
+    
+    // 小球通过闸门后，动态关闭闸门
+    setTimeout(() => {
+      closeGate()
+      if (gateSafetyTimer) {
+        clearTimeout(gateSafetyTimer)
+        gateSafetyTimer = null
+      }
+    }, 300)
   }
   
   // 飞行中的弹珠到达发射区域，进行结算
@@ -823,9 +850,9 @@ const draw = () => {
       // 挡板位于两个通道之间，即当前通道起始位置（slot.x）
       const dividerX = slot.x
       
-      // 绘制垂直竖条挡板（从通道上方30px开始，避免与钉子重叠）
-      ctx.fillRect(dividerX, slot.y - 30, dividerWidth, slot.height + 30)
-      ctx.strokeRect(dividerX, slot.y - 30, dividerWidth, slot.height + 30)
+      // 绘制垂直竖条挡板（仅在通道区域内，不向上延伸）
+      ctx.fillRect(dividerX, slot.y, dividerWidth, slot.height)
+      ctx.strokeRect(dividerX, slot.y, dividerWidth, slot.height)
     }
     
     // 绘制通道内部（不包括挡板）
@@ -1044,13 +1071,10 @@ const drawLaunchChannel = () => {
 
   // ---- 绘制通道主体（简洁的直筒圆角矩形，顶部右圆角） ----
   ctx.fillStyle = 'rgba(100, 180, 220, 0.6)'
-  ctx.strokeStyle = '#FFFFFF'
-  ctx.lineWidth = 3
 
   ctx.beginPath()
   ctx.roundRect(channelLeft, channelTop, channelWidth, channelBottom - channelTop, [0, radius, 0, 0])
   ctx.fill()
-  ctx.stroke()
 
 
 
@@ -1112,6 +1136,45 @@ const drawGate = () => {
   ctx.fillRect(gateLeft - 1, gateY + gateHeight - 4, wallWidth + 2, 4)
 }
 
+// 绘制底部U形收集槽（发射通道底部）
+const drawCollectionTray = () => {
+  const channelLeft = canvasWidth - channelWidth - 5
+  const channelRight = canvasWidth - 5
+  const trayTop = canvasHeight - 70
+  const trayBottom = canvasHeight - 10
+  const trayCenterX = (channelLeft + channelRight) / 2
+
+  // 绘制U形槽主体
+  ctx.strokeStyle = '#4A90A4'
+  ctx.lineWidth = 3
+  ctx.lineCap = 'round'
+
+  // U形槽左侧壁
+  ctx.beginPath()
+  ctx.moveTo(channelLeft + 5, trayTop)
+  ctx.lineTo(channelLeft + 5, trayBottom - 10)
+  ctx.quadraticCurveTo(channelLeft + 5, trayBottom, trayCenterX, trayBottom)
+  ctx.quadraticCurveTo(channelRight - 5, trayBottom, channelRight - 5, trayBottom - 10)
+  ctx.lineTo(channelRight - 5, trayTop)
+  ctx.strokeStyle = 'rgba(74, 144, 164, 0.6)'
+  ctx.stroke()
+
+  // U形槽内部微光效果
+  const trayGradient = ctx.createLinearGradient(channelLeft, trayBottom - 15, channelRight, trayBottom - 15)
+  trayGradient.addColorStop(0, 'rgba(100, 180, 220, 0.1)')
+  trayGradient.addColorStop(0.5, 'rgba(100, 180, 220, 0.3)')
+  trayGradient.addColorStop(1, 'rgba(100, 180, 220, 0.1)')
+  ctx.fillStyle = trayGradient
+  ctx.beginPath()
+  ctx.moveTo(channelLeft + 5, trayTop)
+  ctx.lineTo(channelLeft + 5, trayBottom - 10)
+  ctx.quadraticCurveTo(channelLeft + 5, trayBottom, trayCenterX, trayBottom)
+  ctx.quadraticCurveTo(channelRight - 5, trayBottom, channelRight - 5, trayBottom - 10)
+  ctx.lineTo(channelRight - 5, trayTop)
+  ctx.closePath()
+  ctx.fill()
+}
+
 
 
 // 初始化游戏
@@ -1119,8 +1182,13 @@ const initGame = () => {
   if (!gameCanvas.value) return
   
   ctx = gameCanvas.value.getContext('2d')
-  canvasWidth = gameCanvas.value.width
-  canvasHeight = gameCanvas.value.height
+  
+  // 动态计算 canvas 尺寸，匹配 CSS 实际显示大小
+  const rect = gameCanvas.value.getBoundingClientRect()
+  canvasWidth = Math.round(rect.width) || 310
+  canvasHeight = Math.round(rect.height) || 380
+  gameCanvas.value.width = canvasWidth
+  gameCanvas.value.height = canvasHeight
   
   // 发射通道宽度占 canvas 总宽度的 1/7
   channelWidth = Math.round(canvasWidth / 7)
@@ -1221,9 +1289,9 @@ const initGame = () => {
       const dividerX = slotX + actualSlotWidth
       dividers.push({
         x: dividerX,
-        y: slotY - 30, // 从通道上方30px开始（避免与钉子重叠）
+        y: slotY,
         width: dividerWidth,
-        height: slotHeight + 30 // 延伸到通道上方
+        height: slotHeight
       })
     }
   }
@@ -1250,7 +1318,8 @@ const showSettings = () => {
   alert('设置功能开发中')
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await nextTick()
   initGame()
 })
 
@@ -1271,8 +1340,8 @@ onUnmounted(() => {
   width: 100%;
   max-width: 420px;
   margin: 0 auto;
-  background: linear-gradient(180deg, #87CEEB 0%, #5DADE2 100%);
-  border-radius: 24px;
+  background: linear-gradient(180deg, #5DADE2 0%, #4A90D9 100%);
+  border-radius: 30px;
   padding: 20px 15px 15px;
   box-shadow:
     0 10px 40px rgba(0, 0, 0, 0.3),
@@ -1280,7 +1349,7 @@ onUnmounted(() => {
     inset 0 -2px 4px rgba(0, 0, 0, 0.1);
   position: relative;
   overflow: hidden;
-  border: 3px solid #B0D4F1;
+  border: 4px solid #87CEEB;
 }
 
 /* 机台内边框 */
@@ -1320,13 +1389,14 @@ onUnmounted(() => {
 
 /* 顶部数据看板区 */
 .game-header {
-  background: linear-gradient(135deg, #1E90FF 0%, #00BFFF 100%);
-  border-radius: 15px;
+  background: linear-gradient(135deg, #1A8CFF 0%, #00AAEE 100%);
+  border-radius: 18px;
   padding: 12px;
   margin-bottom: 15px;
   position: relative;
   z-index: 1;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .stats-row {
@@ -1348,14 +1418,16 @@ onUnmounted(() => {
 }
 
 .stat-value {
-  background: linear-gradient(180deg, #1a1a1a 0%, #000 100%);
-  color: #FFD700;
+  background: linear-gradient(180deg, #2a1a1a 0%, #1a0a0a 100%);
+  color: #FF3333;
   font-size: 18px;
   font-weight: bold;
   padding: 6px 8px;
   border-radius: 8px;
   font-family: 'Courier New', monospace;
-  box-shadow: inset 0 2px 4px rgba(255, 215, 0, 0.3);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 51, 51, 0.3);
+  text-shadow: 0 0 4px rgba(255, 51, 51, 0.4);
 }
 
 .progress-bar {
@@ -1375,20 +1447,21 @@ onUnmounted(() => {
 
 .header-buttons {
   display: flex;
-  justify-content: flex-end;
-  gap: 15px;
+  justify-content: space-around;
+  gap: 8px;
 }
 
 .btn-icon {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: none;
+  background: rgba(255, 255, 255, 0.1);
   border: none;
   cursor: pointer;
-  padding: 5px;
-  border-radius: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
   transition: background 0.2s;
+  flex: 1;
 }
 
 .btn-icon:hover {
@@ -1396,20 +1469,20 @@ onUnmounted(() => {
 }
 
 .btn-icon .icon {
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .btn-icon .btn-text {
-  font-size: 8px;
-  color: rgba(255, 255, 255, 0.9);
-  margin-top: 2px;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.95);
+  margin-top: 3px;
 }
 
 /* 中部核心游戏场景区 */
 .game-area {
-  background: linear-gradient(180deg, #87CEEB 0%, #5DADE2 100%);
-  border-radius: 20px;
-  padding: 5px;
+  background: linear-gradient(180deg, #5DB8E8 0%, #4AA4D8 100%);
+  border-radius: 24px;
+  padding: 8px;
   margin-bottom: 15px;
   position: relative;
   z-index: 1;
@@ -1417,17 +1490,51 @@ onUnmounted(() => {
     0 4px 15px rgba(0, 0, 0, 0.2),
     inset 0 2px 4px rgba(255, 255, 255, 0.4),
     inset 0 -2px 4px rgba(0, 0, 0, 0.1);
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 4px solid rgba(255, 255, 255, 0.8);
 }
 
 .game-area-row {
   display: flex;
   gap: 5px;
   align-items: stretch;
+  overflow: hidden;
+  border-radius: 15px;
+}
+
+/* 等待开始文字 */
+.waiting-text {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  z-index: 3;
+  pointer-events: none;
+  letter-spacing: 2px;
+}
+
+/* 弹珠冲啊装饰文字 */
+.game-decoration {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-5deg);
+  font-size: 36px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.08);
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+  z-index: 2;
+  pointer-events: none;
+  white-space: nowrap;
+  letter-spacing: 4px;
 }
 
 .game-canvas {
   flex: 1;
+  min-width: 0;
   height: 380px;
   border-radius: 15px;
   display: block;
@@ -1494,9 +1601,10 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 5px;
+  padding: 0 2px;
   position: relative;
   z-index: 1;
+  margin-top: 10px;
 }
 
 .ball-display {
@@ -1504,9 +1612,11 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  padding: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  padding: 10px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 60px;
 }
 
 .ball-preview {
@@ -1516,8 +1626,8 @@ onUnmounted(() => {
 }
 
 .preview-ball {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: linear-gradient(180deg, #FFD700 0%, #FFA500 100%);
   border: 2px solid #FFD700;
@@ -1525,7 +1635,7 @@ onUnmounted(() => {
 }
 
 .ball-count {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: bold;
   color: #fff;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -1538,16 +1648,21 @@ onUnmounted(() => {
 }
 
 .btn-primary-large {
-  width: 65px;
-  height: 65px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 15px rgba(30, 144, 255, 0.4);
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .btn-primary-large:disabled {
@@ -1556,7 +1671,7 @@ onUnmounted(() => {
 }
 
 .btn-primary-large:not(:disabled):hover {
-  transform: scale(1.05);
+  transform: scale(1.08);
 }
 
 .btn-primary-large:not(:disabled):active {
@@ -1565,17 +1680,19 @@ onUnmounted(() => {
 
 .btn-primary-large .btn-content {
   color: #fff;
-  font-size: 15px;
+  font-size: 18px;
   font-weight: bold;
 }
 
 .btn-bet {
-  background: linear-gradient(180deg, #1E90FF 0%, #0066CC 100%);
+  background: linear-gradient(180deg, #3A8CFF 0%, #1A6EE8 100%);
+  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .btn-start {
-  background: linear-gradient(180deg, #FF6347 0%, #DC143C 100%);
-  box-shadow: 0 4px 15px rgba(255, 99, 71, 0.4);
+  background: linear-gradient(180deg, #FF5E4D 0%, #E83A2E 100%);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 6px 20px rgba(255, 99, 71, 0.4);
 }
 
 /* 右侧弹珠发射器（拉杆+弹簧） */
@@ -1584,27 +1701,55 @@ onUnmounted(() => {
   cursor: default;
   align-self: stretch;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 60px;
+  flex-shrink: 0;
 }
 
 .launch-button.active {
   cursor: pointer;
 }
 
+/* 发射文字标签 */
+.launch-label {
+  font-size: 13px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  margin-bottom: 6px;
+  letter-spacing: 2px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.launch-button.active .launch-label {
+  color: #FFD700;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+  animation: labelPulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes labelPulse {
+  from { opacity: 0.8; }
+  to { opacity: 1; }
+}
+
 /* 发射器底座（深色轨道筒） */
 .launch-base {
-  width: 42px;
+  width: 52px;
   flex: 1;
   min-height: 380px;
-  background: linear-gradient(90deg, #2a2a2a 0%, #111 100%);
-  border-radius: 8px 14px 14px 8px;
+  background: linear-gradient(90deg, #1a1a1a 0%, #0d0d0d 100%);
+  border-radius: 12px 18px 18px 12px;
   padding: 10px 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(255,255,255,0.1);
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.1), 0 2px 8px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
   gap: 0;
-  border: 1px solid #444;
+  border: 1px solid #333;
   position: relative;
 }
 
@@ -1624,21 +1769,22 @@ onUnmounted(() => {
 
 /* 弹簧 */
 .launch-spring {
-  width: 8px;
+  width: 10px;
   flex: 1;
   min-height: 80px;
   background: repeating-linear-gradient(
     0deg,
-    #888,
-    #888 4px,
-    #aaa 4px,
-    #aaa 7px
+    #777,
+    #777 3px,
+    #bbb 3px,
+    #bbb 6px
   );
-  border-radius: 4px;
+  border-radius: 5px;
   transition: all 0.15s ease;
   flex-shrink: 0;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(255,255,255,0.1);
   margin-bottom: 4px;
+  border: 1px solid #555;
 }
 
 /* 弹簧压缩状态 */
@@ -1649,32 +1795,48 @@ onUnmounted(() => {
 
 /* 大红圆形发射按钮 */
 .launch-lever {
-  width: 38px;
-  height: 38px;
-  background: radial-gradient(circle at 35% 30%, #FF6666 0%, #DD2222 40%, #AA0000 100%);
+  width: 48px;
+  height: 48px;
+  background: radial-gradient(circle at 35% 30%, #FF7777 0%, #EE3333 40%, #CC0000 100%);
   border-radius: 50%;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5), inset 0 -3px 6px rgba(0,0,0,0.3), inset 0 3px 6px rgba(255,255,255,0.2);
-  border: 2px solid #FF5555;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 -3px 6px rgba(0,0,0,0.3), inset 0 3px 6px rgba(255,255,255,0.3);
+  border: 2px solid #FF4444;
   transition: transform 0.15s ease;
   flex-shrink: 0;
   cursor: pointer;
   margin-top: auto;
+  position: relative;
+}
+
+/* 按钮上的发射箭头 */
+.launch-lever::after {
+  content: '▲';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 18px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
 }
 
 /* 按钮拉下状态（模拟弹簧压缩） */
 .launch-lever.pulled {
-  transform: translateY(14px);
+  transform: translateY(16px);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), inset 0 -3px 6px rgba(0,0,0,0.3);
 }
 
 /* 底部倍率显示 */
 .multiplier-display {
   display: flex;
-  justify-content: space-around;
-  padding: 8px 5px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 10px;
+  justify-content: space-between;
+  padding: 8px 4px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 12px;
   margin-top: 10px;
+  gap: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .slot-item {
@@ -1686,9 +1848,10 @@ onUnmounted(() => {
   font-weight: bold;
   padding: 4px 2px;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.2);
   transition: all 0.3s ease;
-  min-width: 28px;
+  flex: 1;
+  min-width: 0;
 }
 
 .slot-light {
@@ -1746,6 +1909,42 @@ onUnmounted(() => {
   background: radial-gradient(circle at 30% 30%, #FFD700, #FFA500);
   box-shadow: 0 0 15px rgba(255, 215, 0, 1);
   animation: pulse 0.5s ease-in-out infinite alternate;
+}
+
+/* 底部U形收集槽 */
+.collection-tray {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  padding: 0 20px;
+}
+
+.tray-body {
+  width: 100%;
+  max-width: 260px;
+  height: 50px;
+  position: relative;
+}
+
+.tray-inner {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, #e8f4fc 0%, #d0e8f7 100%);
+  border-radius: 0 0 40px 40px;
+  border: 3px solid rgba(255, 255, 255, 0.8);
+  border-top: none;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.15);
+  position: relative;
+}
+
+.tray-inner::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
 }
 
 @keyframes pulse {
