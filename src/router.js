@@ -54,6 +54,8 @@ import GitCheatTool from './views/GitCheatTool.vue'
 import ImgConvertTool from './views/ImgConvertTool.vue'
 import MorseTool from './views/MorseTool.vue'
 import RandomTool from './views/RandomTool.vue'
+import CadTool from './views/CadTool.vue'
+import MarbleGame from './views/MarbleGame.vue'
 
 export const routes = [
   { path: '/', redirect: '/json' },
@@ -113,12 +115,14 @@ export const routes = [
   { path: '/image', name: 'image', component: ImageTool, meta: { title: '图片处理', icon: '🖼️', group: 'advanced' } },
   { path: '/a11y', name: 'a11y', component: A11yTool, meta: { title: '无障碍辅助', icon: '♿', group: 'advanced' } },
   { path: '/svg', name: 'svg', component: SvgTool, meta: { title: 'SVG预览编辑', icon: '🖼️', group: 'advanced' } },
+  { path: '/cad', name: 'cad', component: CadTool, meta: { title: 'CAD在线画图', icon: '📐', group: 'advanced' } },
   { path: '/code-shot', name: 'code-shot', component: CodeShotTool, meta: { title: '代码截图', icon: '📸', group: 'advanced' } },
   { path: '/bg-remover', name: 'bg-remover', component: BgRemoverTool, meta: { title: '在线抠图', icon: '✂️', group: 'media' } },
   { path: '/video-gif', name: 'video-gif', component: VideoGifTool, meta: { title: '视频转GIF', icon: '🎬', group: 'media' } },
   { path: '/file-compress', name: 'file-compress', component: FileCompressTool, meta: { title: '文件压缩', icon: '📦', group: 'media' } },
   { path: '/img-convert', name: 'img-convert', component: ImgConvertTool, meta: { title: '图片格式转换', icon: '🔄', group: 'media' } },
   { path: '/sqlite', name: 'sqlite', component: SqliteTool, meta: { title: 'SQLite查看', icon: '🗄️', group: 'dev' } },
+  { path: '/marble', name: 'marble', component: MarbleGame, meta: { title: '弹珠冲啊', icon: '⚽', group: 'advanced' } },
 ]
 
 export const toolGroups = {
