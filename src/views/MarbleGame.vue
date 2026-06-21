@@ -1,5 +1,8 @@
 <template>
   <div class="marble-game-container">
+    <!-- 机台螺丝装饰 -->
+    <div class="screw top-left"></div>
+    <div class="screw top-right"></div>
     <!-- 顶部数据看板区 -->
     <div class="game-header">
       <div class="stats-row">
@@ -554,18 +557,61 @@ const updateBall = (ball, frameCount) => {
     ball.vx *= -0.8 // 反弹
   }
   
+  // 最右侧墙壁碰撞检测（发射通道右边界）
+  const outerWallX = canvasWidth - 5
+  if (ball.x + ball.radius > outerWallX) {
+    ball.x = outerWallX - ball.radius
+    ball.vx *= -0.8 // 反弹
+  }
+
+  // 四分之一圆形墙壁碰撞检测（发射通道顶部弧形）
+  const channelTop = 55
+  const arcCenterX = outerWallX
+  const arcCenterY = channelTop
+  const arcRadius = channelWidth
+
+  // 计算小球到圆心的距离
+  const dx = ball.x - arcCenterX
+  const dy = ball.y - arcCenterY
+  const distance = Math.sqrt(dx * dx + dy * dy)
+
+  // 如果小球在弧形区域内且距离大于半径 - ball.radius
+  if (ball.x > arcCenterX - arcRadius && ball.y < arcCenterY + arcRadius) {
+    if (distance > arcRadius - ball.radius) {
+      // 碰撞响应
+      const angle = Math.atan2(dy, dx)
+      const overlap = distance - (arcRadius - ball.radius) + 1
+
+      ball.x -= Math.cos(angle) * overlap
+      ball.y -= Math.sin(angle) * overlap
+
+      // 反弹
+      const normalX = Math.cos(angle)
+      const normalY = Math.sin(angle)
+      const dotProduct = ball.vx * normalX + ball.vy * normalY
+      ball.vx -= 2 * dotProduct * normalX
+      ball.vy -= 2 * dotProduct * normalY
+      ball.vx *= 0.8
+      ball.vy *= 0.8
+    }
+  }
+
   // 右侧墙壁碰撞检测（在发射通道左侧边缘，墙壁宽度为8像素）
   const rightWallX = canvasWidth - channelWidth - 5
   const rightWallLeft = rightWallX - wallWidth
-  
+
   // 右侧墙壁有缺口（闸门位置）
   const gapTop = canvasHeight - 80
   const gapHeight = 50
-  
-  // 检查是否碰到右侧墙壁（排除缺口区域）
+
+  // 检查是否碰到右侧墙壁（排除缺口区域和顶部通道区域）
   if (ball.x + ball.radius > rightWallLeft) {
+    // 顶部通道区域：小球可以进入游戏区域
+    if (ball.y < channelTop + channelWidth) {
+      // 允许小球通过（不碰撞）
+    }
     // 如果闸门关闭，缺口也被阻挡
-    if (!gateOpen || ball.y < gapTop || ball.y > gapTop + gapHeight) {
+    else if (!gateOpen || ball.y < gapTop || ball.y > gapTop + gapHeight) {
       ball.x = rightWallLeft - ball.radius
       ball.vx *= -0.8 // 反弹
     }
@@ -803,6 +849,23 @@ const draw = () => {
     ctx.fillRect(slot.x + dividerWidth, slot.y, actualSlotWidth, slot.height)
     ctx.shadowBlur = 0
     
+    // 绘制通道上方圆形指示灯
+    const indicatorX = slot.x + dividerWidth + actualSlotWidth / 2
+    const indicatorY = slot.y - 10
+    const indicatorRadius = 4
+    ctx.beginPath()
+    ctx.arc(indicatorX, indicatorY, indicatorRadius, 0, Math.PI * 2)
+    if (isActive) {
+      ctx.fillStyle = '#FF4444'
+      ctx.shadowColor = '#FF4444'
+      ctx.shadowBlur = 6
+    } else {
+      ctx.fillStyle = '#555555'
+      ctx.shadowBlur = 0
+    }
+    ctx.fill()
+    ctx.shadowBlur = 0
+    
     // 绘制倍率文字
     if (isActive) {
       ctx.fillStyle = '#FFD700'
@@ -848,6 +911,9 @@ const draw = () => {
   
   // 绘制闸门
   drawGate()
+  
+  // 绘制底部U形收集槽
+  drawCollectionTray()
   
   // 确保主弹珠参与物理模拟（等待滚入发射位 或 飞行中）
   if (mainBall && (ballState === 'waiting' || ballState === 'flying')) {
@@ -896,49 +962,73 @@ const drawDownhill = () => {
 const drawWalls = () => {
   const wallWidth = 8
   const wallHeight = canvasHeight
-  
-  // 左侧墙壁（绿色）
+  const channelTop = 55 // 发射通道顶部高度
+
+  // 左侧墙壁（浅蓝色，与机台外壳一致）
   const leftWallGradient = ctx.createLinearGradient(0, 0, wallWidth, 0)
-  leftWallGradient.addColorStop(0, '#228B22') // 深绿色
-  leftWallGradient.addColorStop(0.5, '#32CD32') // 亮绿色
-  leftWallGradient.addColorStop(1, '#228B22') // 深绿色
-  
+  leftWallGradient.addColorStop(0, '#5DADE2') // 深蓝
+  leftWallGradient.addColorStop(0.5, '#87CEEB') // 浅蓝
+  leftWallGradient.addColorStop(1, '#5DADE2') // 深蓝
+
   ctx.fillStyle = leftWallGradient
   ctx.fillRect(0, 0, wallWidth, wallHeight)
-  
+
   // 左侧墙壁边框
-  ctx.strokeStyle = '#006400'
+  ctx.strokeStyle = '#4A90A4'
   ctx.lineWidth = 2
   ctx.strokeRect(0, 0, wallWidth, wallHeight)
-  
-  // 右侧墙壁（绿色，在发射通道左侧边缘）
+
+  // 右侧墙壁（浅蓝色，在发射通道左侧边缘）
   const rightWallX = canvasWidth - channelWidth - 5 // 与发射通道左边缘对齐
   const rightWallGradient = ctx.createLinearGradient(rightWallX - wallWidth, 0, rightWallX, 0)
-  rightWallGradient.addColorStop(0, '#228B22') // 深绿色
-  rightWallGradient.addColorStop(0.5, '#32CD32') // 亮绿色
-  rightWallGradient.addColorStop(1, '#228B22') // 深绿色
-  
+  rightWallGradient.addColorStop(0, '#5DADE2') // 深蓝
+  rightWallGradient.addColorStop(0.5, '#87CEEB') // 浅蓝
+  rightWallGradient.addColorStop(1, '#5DADE2') // 深蓝
+
   ctx.fillStyle = rightWallGradient
-  
+
   // 右侧墙壁分成两部分，中间有一个缺口（闸门位置）
   const gapTop = canvasHeight - 80 // 缺口顶部位置
   const gapHeight = 50 // 缺口高度
-  
-  // 上半部分墙壁
+
+  // 上半部分墙壁（从顶部到 gapTop）
   ctx.fillRect(rightWallX - wallWidth, 0, wallWidth, gapTop)
-  
+
   // 下半部分墙壁
   ctx.fillRect(rightWallX - wallWidth, gapTop + gapHeight, wallWidth, wallHeight - gapTop - gapHeight)
-  
+
   // 右侧墙壁边框
-  ctx.strokeStyle = '#006400'
+  ctx.strokeStyle = '#4A90A4'
   ctx.lineWidth = 2
-  
+
   // 上半部分边框
   ctx.strokeRect(rightWallX - wallWidth, 0, wallWidth, gapTop)
-  
+
   // 下半部分边框
   ctx.strokeRect(rightWallX - wallWidth, gapTop + gapHeight, wallWidth, wallHeight - gapTop - gapHeight)
+
+  // ====== 最右侧墙壁（发射通道的右边界）+ 顶部四分之一圆形 ======
+  const outerWallX = canvasWidth - 5 // 最右侧墙壁位置
+  const outerWallWidth = 5
+
+  // 绘制最右侧墙壁（垂直部分，从发射通道顶部到底部）
+  ctx.fillStyle = rightWallGradient
+  ctx.fillRect(outerWallX, channelTop, outerWallWidth, wallHeight - channelTop)
+  ctx.strokeStyle = '#4A90A4'
+  ctx.lineWidth = 2
+  ctx.strokeRect(outerWallX, channelTop, outerWallWidth, wallHeight - channelTop)
+
+  // 绘制顶部四分之一圆形（向左弯曲，连接最右侧墙壁和游戏区域右边界）
+  ctx.beginPath()
+  ctx.moveTo(outerWallX, channelTop)
+  ctx.lineTo(outerWallX, channelTop + channelWidth)
+  ctx.arc(outerWallX, channelTop, channelWidth, Math.PI / 2, Math.PI, false)
+  ctx.closePath()
+  ctx.fillStyle = rightWallGradient
+  ctx.fill()
+  ctx.strokeStyle = '#4A90A4'
+  ctx.lineWidth = 2
+  ctx.stroke()
 }
 
 // 绘制右侧发射通道（简洁直筒 + 底部U形球槽）
@@ -1014,37 +1104,91 @@ const drawLaunchChannel = () => {
   }
 }
 
-// 绘制闸门（绿色，与墙壁颜色一致，填补墙壁缺口）
+// 绘制闸门（浅蓝色，与墙壁颜色一致，填补墙壁缺口）
 const drawGate = () => {
   const wallWidth = 8
   const rightWallX = canvasWidth - channelWidth - 5
   const gateLeft = rightWallX - wallWidth // 闸门位置与右侧墙壁对齐
-  
-  // 绘制闸门主体（绿色，与墙壁颜色一致）
+
+  // 绘制闸门主体（浅蓝色，与墙壁颜色一致）
   const gateGradient = ctx.createLinearGradient(gateLeft, 0, gateLeft + wallWidth, 0)
-  gateGradient.addColorStop(0, '#228B22') // 深绿色
-  gateGradient.addColorStop(0.5, '#32CD32') // 亮绿色
-  gateGradient.addColorStop(1, '#228B22') // 深绿色
-  
+  gateGradient.addColorStop(0, '#5DADE2') // 深蓝
+  gateGradient.addColorStop(0.5, '#87CEEB') // 浅蓝
+  gateGradient.addColorStop(1, '#5DADE2') // 深蓝
+
   ctx.fillStyle = gateGradient
-  ctx.strokeStyle = '#006400'
+  ctx.strokeStyle = '#4A90A4'
   ctx.lineWidth = 2
-  
+
   // 绘制闸门主体（高度为缺口高度）
   const gateHeight = 50
   ctx.beginPath()
   ctx.roundRect(gateLeft, gateY, wallWidth, gateHeight, 3)
   ctx.fill()
   ctx.stroke()
-  
+
   // 绘制闸门顶部和底部的金属边缘
   const edgeGradient = ctx.createLinearGradient(gateLeft - 1, 0, gateLeft - 1, 10)
-  edgeGradient.addColorStop(0, '#32CD32')
-  edgeGradient.addColorStop(1, '#228B22')
-  
+  edgeGradient.addColorStop(0, '#87CEEB')
+  edgeGradient.addColorStop(1, '#5DADE2')
+
   ctx.fillStyle = edgeGradient
   ctx.fillRect(gateLeft - 1, gateY, wallWidth + 2, 4)
   ctx.fillRect(gateLeft - 1, gateY + gateHeight - 4, wallWidth + 2, 4)
+}
+
+// 绘制底部U形收集槽
+const drawCollectionTray = () => {
+  const trayHeight = 22
+  const trayY = canvasHeight - trayHeight
+  const margin = 12
+  const cornerR = 8
+
+  // 先绘制阴影
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.15)'
+  ctx.shadowBlur = 6
+  ctx.shadowOffsetY = 2
+
+  // U形槽外边框
+  ctx.strokeStyle = '#FFFFFF'
+  ctx.lineWidth = 2.5
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
+  ctx.beginPath()
+  ctx.moveTo(margin + cornerR, trayY)
+  ctx.lineTo(margin + cornerR, trayY + trayHeight - cornerR)
+  ctx.quadraticCurveTo(margin + cornerR, trayY + trayHeight, margin + cornerR * 2, trayY + trayHeight)
+  ctx.lineTo(canvasWidth - margin - cornerR * 2, trayY + trayHeight)
+  ctx.quadraticCurveTo(canvasWidth - margin - cornerR, trayY + trayHeight, canvasWidth - margin - cornerR, trayY + trayHeight - cornerR)
+  ctx.lineTo(canvasWidth - margin - cornerR, trayY)
+  ctx.stroke()
+
+  ctx.shadowBlur = 0
+  ctx.shadowOffsetY = 0
+
+  // U形槽内部填充
+  ctx.fillStyle = 'rgba(200, 230, 255, 0.35)'
+  ctx.beginPath()
+  ctx.moveTo(margin + cornerR + 2, trayY + 1)
+  ctx.lineTo(margin + cornerR + 2, trayY + trayHeight - cornerR)
+  ctx.quadraticCurveTo(margin + cornerR + 2, trayY + trayHeight - 2, margin + cornerR * 2, trayY + trayHeight - 2)
+  ctx.lineTo(canvasWidth - margin - cornerR * 2, trayY + trayHeight - 2)
+  ctx.quadraticCurveTo(canvasWidth - margin - cornerR - 2, trayY + trayHeight - 2, canvasWidth - margin - cornerR - 2, trayY + trayHeight - cornerR)
+  ctx.lineTo(canvasWidth - margin - cornerR - 2, trayY + 1)
+  ctx.closePath()
+  ctx.fill()
+
+  // 绘制槽内分隔线（模拟收集槽细节）
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
+  ctx.lineWidth = 1
+  for (let i = 1; i < 4; i++) {
+    const lineX = margin + cornerR + (canvasWidth - margin * 2 - cornerR * 2) * (i / 4)
+    ctx.beginPath()
+    ctx.moveTo(lineX, trayY + trayHeight - 5)
+    ctx.lineTo(lineX, trayY + trayHeight - 2)
+    ctx.stroke()
+  }
 }
 
 // 初始化游戏
@@ -1077,12 +1221,12 @@ const initGame = () => {
   
   const wallWidth = 8 // 墙壁宽度
   
-  // 上部稀疏大钉子（只1排）
+  // 上部稀疏大钉子（只1排，6个）
   const topRows = 1
-  const topCols = 7
-  const topStartX = wallWidth + 22 // 从墙壁右侧开始
+  const topCols = 6
+  const topStartX = wallWidth + 35 // 从墙壁右侧开始
   const topStartY = 40
-  const topSpacingX = 50
+  const topSpacingX = 55
   const topSpacingY = 35
   
   for (let row = 0; row < topRows; row++) {
@@ -1199,14 +1343,53 @@ onUnmounted(() => {
 <style scoped>
 .marble-game-container {
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
   margin: 0 auto;
-  background: linear-gradient(180deg, #4ECDC4 0%, #44A08D 100%);
-  border-radius: 20px;
-  padding: 15px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(180deg, #87CEEB 0%, #5DADE2 100%);
+  border-radius: 24px;
+  padding: 20px 15px 15px;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.3),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.1);
   position: relative;
   overflow: hidden;
+  border: 3px solid #B0D4F1;
+}
+
+/* 机台内边框 */
+.marble-game-container::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 18px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 顶部螺丝装饰 */
+.marble-game-container .screw {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #E8E8E8, #999);
+  border: 1px solid #888;
+  z-index: 2;
+}
+
+.marble-game-container .screw.top-left {
+  top: 12px;
+  left: 12px;
+}
+
+.marble-game-container .screw.top-right {
+  top: 12px;
+  right: 12px;
 }
 
 /* 顶部数据看板区 */
@@ -1298,13 +1481,17 @@ onUnmounted(() => {
 
 /* 中部核心游戏场景区 */
 .game-area {
-  background: #87CEEB;
+  background: linear-gradient(180deg, #87CEEB 0%, #5DADE2 100%);
   border-radius: 20px;
   padding: 5px;
   margin-bottom: 15px;
   position: relative;
   z-index: 1;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 4px 15px rgba(0, 0, 0, 0.2),
+    inset 0 2px 4px rgba(255, 255, 255, 0.4),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .game-canvas {
